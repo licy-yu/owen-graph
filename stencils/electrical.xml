@@ -1,0 +1,20 @@
+<stencilset name="electrical" w="40" h="10">
+  <description>Basic Electrical Symbols</description>
+  <shape name="resistor" w="40" h="10" aspect="fixed">
+    <stroke width="2"/>
+    <foreground>
+      <path>
+        M 0 5 L 10 5 L 15 0 L 25 10 L 30 5 L 40 5
+      </path>
+    </foreground>
+  </shape>
+  <shape name="capacitor" w="40" h="20" aspect="fixed">
+    <stroke width="2"/>
+    <foreground>
+      <path> M 0 10 L 15 10 </path>
+      <path> M 15 0 L 15 20 </path>
+      <path> M 25 0 L 25 20 </path>
+      <path> M 25 10 L 40 10 </path>
+    </foreground>
+  </shape>
+</stencilset>
