@@ -1,9 +1,9 @@
 <template>
-  <div ref="container" style="width:100%;height:100%;"></div>
+  <div id="graph-container" ref="graphContainer" style="width: 100%; height: 100%; border: 1px solid black;"></div>
 </template>
 
 <script>
-import { mxgraphFactory } from '@/utils/mxFactory';
+import mxFactory from '../utils/mxFactory';
 
 export default {
   name: 'GraphEditor',
@@ -12,69 +12,53 @@ export default {
   },
   methods: {
     async initGraph() {
-      const mx = await mxgraphFactory();
+      const container = this.$refs.graphContainer;
+      const mxGraph = mxFactory.mxGraph;
+      const mxUtils = mxFactory.mxUtils;
+      const mxConstants = mxFactory.mxConstants;
+      const mxEvent = mxFactory.mxEvent;
 
-      // 加载 stencil
-      fetch('/stencils/electrical.xml')
-        .then(r => r.text())
-        .then(xml => {
-          mx.mxStencilRegistry.parseStencilSet(xml);
-        });
+      // 创建图形实例
+      const graph = new mxGraph(container);
+      graph.setPanning(true);
+      graph.setTooltips(true);
+      graph.setEnabled(true);
 
-      const graph = new mx.mxGraph(this.$refs.container);
-      graph.setConnectable(true);
-      graph.setCellsResizable(false);
+      // 加载 SVG 文件
+      const svgUrl = require('@/assert/svg/image.svg');
+      const response = await fetch(svgUrl);
+      const svgText = await response.text();
+
+      // 创建外部 SVG 节点
+      const parser = new DOMParser();
+      const svgDoc = parser.parseFromString(svgText, 'image/svg+xml');
+      const svgElement = svgDoc.documentElement;
+
+      // 将 SVG 添加到 mxGraph 中
       const parent = graph.getDefaultParent();
-
       graph.getModel().beginUpdate();
       try {
-        graph.insertVertex(parent, null, '电阻', 40, 40, 60, 20, 'shape=resistor');
-        graph.insertVertex(parent, null, '设备', 160, 40, 80, 40, 'shape=rectangle');
+        const width = parseFloat(svgElement.getAttribute('width')) || 100;
+        const height = parseFloat(svgElement.getAttribute('height')) || 100;
 
-        // 添加元件
-        const switch1 = graph.insertVertex(parent, null, '开关01', 40, 40, 60, 20, 'shape=rectangle;fillColor=red');
-        const switch2 = graph.insertVertex(parent, null, '开关02', 160, 40, 60, 20, 'shape=rectangle;fillColor=red');
-        const line1 = graph.insertEdge(parent, null, '', switch1, switch2, 'strokeColor=red;strokeWidth=2');
+        const vertex = graph.insertVertex(parent, null, '', 20, 20, width, height);
+        const overlay = document.createElement('div');
+        overlay.style.position = 'absolute';
+        overlay.style.width = `${width}px`;
+        overlay.style.height = `${height}px`;
+        overlay.appendChild(svgElement);
 
-        const switch3 = graph.insertVertex(parent, null, '开关03', 100, 100, 60, 20, 'shape=rectangle;fillColor=green');
-        const line2 = graph.insertEdge(parent, null, '', switch2, switch3, 'strokeColor=red;strokeWidth=2');
-
-        // 添加更多元件和连线
-        const switch4 = graph.insertVertex(parent, null, '开关04', 220, 100, 60, 20, 'shape=rectangle;fillColor=red');
-        graph.insertEdge(parent, null, '', switch3, switch4, 'strokeColor=red;strokeWidth=2');
+        graph.container.appendChild(overlay);
       } finally {
         graph.getModel().endUpdate();
       }
-
-      // 居中显示图形
-      const bounds = graph.getGraphBounds();
-      const container = this.$refs.container;
-      const dx = (container.clientWidth - bounds.width) / 2 - bounds.x;
-      const dy = (container.clientHeight - bounds.height) / 2 - bounds.y;
-      graph.view.setTranslate(dx, dy);
-
-      this.graph = graph;
     },
-    async flashCell(cell) {
-      const state = this.graph.view.getState(cell);
-      if (state) {
-        const initialColor = state.style[mxConstants.STYLE_FILLCOLOR];
-        let isHighlighted = false;
-        const interval = setInterval(() => {
-          isHighlighted = !isHighlighted;
-          this.graph.setCellStyles(
-            mxConstants.STYLE_FILLCOLOR,
-            isHighlighted ? 'yellow' : initialColor,
-            [cell]
-          );
-        }, 500);
-
-        setTimeout(() => {
-          clearInterval(interval);
-          this.graph.setCellStyles(mxConstants.STYLE_FILLCOLOR, initialColor, [cell]);
-        }, 5000);
-      }
-    }
-  }
+  },
 };
 </script>
+
+<style scoped>
+#graph-container {
+  position: relative;
+}
+</style>
