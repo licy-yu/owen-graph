@@ -1,64 +1,61 @@
 <template>
-  <div id="graph-container" ref="graphContainer" style="width: 100%; height: 100%; border: 1px solid black;"></div>
+  <div ref="graphContainer" style="width:100%;height:100%;position:relative;border:1px solid #ccc;"></div>
 </template>
 
 <script>
-import mxFactory from '../utils/mxFactory';
+// 导入 SVG 原始字符串
+import rawSvg from '@/assets/svg/electrical.svg';
 
 export default {
   name: 'GraphEditor',
-  mounted() {
-    this.initGraph();
-  },
-  methods: {
-    async initGraph() {
-      const container = this.$refs.graphContainer;
-      const mxGraph = mxFactory.mxGraph;
-      const mxUtils = mxFactory.mxUtils;
-      const mxConstants = mxFactory.mxConstants;
-      const mxEvent = mxFactory.mxEvent;
+  async mounted() {
+    // 1. 检查 mxGraph 是否加载
+    if (typeof mxGraph === 'undefined') {
+      console.error('mxGraph 未加载，请检查 mxClient.min.js');
+      return;
+    }
 
-      // 创建图形实例
-      const graph = new mxGraph(container);
-      graph.setPanning(true);
-      graph.setTooltips(true);
-      graph.setEnabled(true);
+    // 2. SVG → DataURL
+    const blob = new Blob([rawSvg], { type: 'image/svg+xml' });
+    const dataUrl = await new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onload = e => resolve(e.target.result);
+      reader.readAsDataURL(blob);
+    });
 
-      // 加载 SVG 文件
-      const svgUrl = require('@/assert/svg/image.svg');
-      const response = await fetch(svgUrl);
-      const svgText = await response.text();
+    // 3. 初始化 mxGraph
+    const container = this.$refs.graphContainer;
+    const graph = new mxGraph(container);
+    graph.setPanning(true);
+    graph.setTooltips(true);
+    graph.setEnabled(true);
 
-      // 创建外部 SVG 节点
-      const parser = new DOMParser();
-      const svgDoc = parser.parseFromString(svgText, 'image/svg+xml');
-      const svgElement = svgDoc.documentElement;
+    // 4. 插入 SVG 顶点
+    const parent = graph.getDefaultParent();
+    graph.getModel().beginUpdate();
+    try {
+      // 解析 viewBox 尺寸
+      const vbMatch = /viewBox=\"([^\"]+)\"/.exec(rawSvg);
+      const dims = vbMatch ? vbMatch[1].split(/\s+/).map(Number) : [0,0,100,100];
+      const width = dims[2], height = dims[3];
 
-      // 将 SVG 添加到 mxGraph 中
-      const parent = graph.getDefaultParent();
-      graph.getModel().beginUpdate();
-      try {
-        const width = parseFloat(svgElement.getAttribute('width')) || 100;
-        const height = parseFloat(svgElement.getAttribute('height')) || 100;
+      graph.insertVertex(
+        parent,
+        null,
+        '',         // 顶点不显示文本
+        20, 20,     // x, y
+        width,
+        height,
+        `shape=image;image=${dataUrl};`
+      );
+    } finally {
+      graph.getModel().endUpdate();
+    }
 
-        const vertex = graph.insertVertex(parent, null, '', 20, 20, width, height);
-        const overlay = document.createElement('div');
-        overlay.style.position = 'absolute';
-        overlay.style.width = `${width}px`;
-        overlay.style.height = `${height}px`;
-        overlay.appendChild(svgElement);
-
-        graph.container.appendChild(overlay);
-      } finally {
-        graph.getModel().endUpdate();
-      }
-    },
-  },
+    this.graph = graph;
+  }
 };
 </script>
 
 <style scoped>
-#graph-container {
-  position: relative;
-}
 </style>
